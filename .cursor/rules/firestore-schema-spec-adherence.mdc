@@ -1,0 +1,24 @@
+---
+description: Firestore schema requirements and spec adherence
+globs:
+  - docs/FIRESTORE_SCHEMA.md
+  - firestore.rules
+  - firestore.indexes.json
+  - storage.rules
+  - src/lib/firebase.ts
+  - src/lib/auth.ts
+  - src/routes/**/*
+alwaysApply: true
+---
+
+The Firestore/Storage schema contract for Luma is defined in `docs/FIRESTORE_SCHEMA.md` and must be treated as canonical.
+
+- Preserve a flat collection architecture with `users`, `societies`, `memberships`, and `contributions`; do not model memberships as nested society documents.
+- Keep canonical document ID strategies stable: `users/{uid}`, `societies/{autoId}`, `memberships/{societyId}_{userId}`, and `contributions/{autoId}`.
+- Ensure required fields, value domains, and type contracts remain aligned with `docs/FIRESTORE_SCHEMA.md` (including enums such as membership roles, contribution statuses, and rule intervals).
+- Treat `memberships` as the authoritative bridge for "My Societies" and role checks; do not bypass this bridge in schema or access-control logic.
+- Keep Firestore query/index changes aligned with MVP access patterns documented in `docs/FIRESTORE_SCHEMA.md`, especially dashboard membership lookup, pending contribution admin queue, and invite-code lookup.
+- Restrict write/update permissions so only society admins can perform admin actions (for example, society-level management and contribution status transitions).
+- Enforce tenant privacy boundaries so members can only read contribution data scoped to societies where they hold membership.
+- Keep POP storage organization and metadata consistent with the documented path contract and reverse-lookup requirement (`societies/{societyId}/pops/{userId}_{timestamp}.jpg` plus `contributionId` metadata).
+- When changing schema behavior, update `docs/FIRESTORE_SCHEMA.md`, `firestore.rules`, `firestore.indexes.json`, and `storage.rules` together in the same change.
