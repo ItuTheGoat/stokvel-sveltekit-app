@@ -1,0 +1,14 @@
+---
+description: Use Bun for installs and scripts; bunx instead of npx; Firebase deploy via bun run deploy:*
+alwaysApply: true
+---
+
+# Bun package manager
+
+This repo uses **Bun** as the package manager and script runner.
+
+- **Install / remove / update:** use `bun add`, `bun remove`, and `bun update`. Do not use `npm`, `yarn`, or `pnpm` for this project.
+- **One-off CLIs:** use `bunx <package>` instead of `npx` (for example `bunx eslint`).
+- **Firebase deploy:** use **`bun run deploy:*`** scripts defined in `package.json`. Those scripts run **`firebase deploy --only …`**. Do not replace that with `bunx firebase-tools` for deploy.
+- **Project scripts:** use `bun run <script>` (for example `bun run dev`, `bun run build`).
+- When suggesting terminal commands or editing CI or docs, use this vocabulary unless an external tool explicitly requires another runner.
