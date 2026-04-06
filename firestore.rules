@@ -9,33 +9,37 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function listRef(listId) {
-      return /databases/$(database)/documents/lists/$(listId);
+    function membershipId(societyId, userId) {
+      return societyId + '_' + userId;
     }
 
-    function listExists(listId) {
-      return exists(listRef(listId));
+    function membershipRef(societyId, userId) {
+      return /databases/$(database)/documents/memberships/$(membershipId(societyId, userId));
     }
 
-    function isListMember(listId) {
-      return isSignedIn() && listExists(listId) && request.auth.uid in get(listRef(listId)).data.memberIds;
+    function isMemberOfSociety(societyId) {
+      return isSignedIn() && exists(membershipRef(societyId, request.auth.uid));
     }
 
-    function listSelfJoinUpdate() {
-      return isSignedIn()
-        && !(request.auth.uid in resource.data.memberIds)
-        && request.auth.uid in request.resource.data.memberIds
-        && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
-        && request.resource.data.name == resource.data.name
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.createdAt == resource.data.createdAt;
+    function isAdminOfSociety(societyId) {
+      return isMemberOfSociety(societyId)
+        && get(membershipRef(societyId, request.auth.uid)).data.role == 'admin';
     }
 
-    // Client stores '' when profile has no email; token email is null then — '' != null in rules.
-    function redeemEmailMatchesStored(stored) {
-      return (request.auth.token.email == null || request.auth.token.email == '')
-        ? stored == ''
-        : stored == request.auth.token.email;
+    function isValidInterval(interval) {
+      return interval in ['weekly', 'monthly', 'quarterly'];
+    }
+
+    function isValidMembershipRole(role) {
+      return role in ['admin', 'member'];
+    }
+
+    function isValidContributionStatus(status) {
+      return status in ['pending', 'approved', 'rejected'];
+    }
+
+    function membershipDocIdMatchesBody(membershipDocId, societyId, userId) {
+      return membershipDocId == membershipId(societyId, userId);
     }
 
     match /users/{userId} {
@@ -43,79 +47,109 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /lists/{listId} {
+    match /societies/{societyId} {
       allow create: if isSignedIn()
-        && request.resource.data.ownerId == request.auth.uid
-        && request.auth.uid in request.resource.data.memberIds;
-
-      // Any signed-in user may read (list ids are unguessable; enables invite redeem tx get).
-      allow read: if isSignedIn();
-
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-
-      allow update: if listSelfJoinUpdate();
-    }
-
-    match /listInviteCodes/{code} {
-      allow read: if isSignedIn();
-
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['listId', 'ownerId', 'createdAt', 'consumed'])
-        && request.resource.data.consumed == false
-        && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.listId is string
-        && get(listRef(request.resource.data.listId)).data.ownerId == request.auth.uid;
-
-      allow update: if isSignedIn()
-        && resource.data.consumed == false
-        && request.resource.data.consumed == true
-        && request.resource.data.listId == resource.data.listId
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.consumedByUid == request.auth.uid
-        && redeemEmailMatchesStored(request.resource.data.consumedByEmail);
-
-      allow delete: if isSignedIn()
-        && resource.data.ownerId == request.auth.uid
-        && resource.data.consumed == false;
-    }
-
-    match /listInviteRedemptions/{redemptionId} {
-      allow create: if isSignedIn()
-        && request.resource.data.usedByUid == request.auth.uid
-        && redeemEmailMatchesStored(request.resource.data.usedByEmail)
-        && request.resource.data.listId is string
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'inviteCode',
+          'creatorId',
+          'totalPot',
+          'rules'
+        ])
+        && request.resource.data.name is string
         && request.resource.data.inviteCode is string
-        && request.resource.data.usedAt is timestamp;
+        && request.resource.data.creatorId == request.auth.uid
+        && request.resource.data.totalPot is number
+        && request.resource.data.rules is map
+        && request.resource.data.rules.keys().hasOnly(['amount', 'interval', 'maxMembers', 'startDate'])
+        && request.resource.data.rules.amount is number
+        && request.resource.data.rules.maxMembers is number
+        && request.resource.data.rules.startDate is timestamp
+        && isValidInterval(request.resource.data.rules.interval);
+
+      allow read: if isMemberOfSociety(societyId);
+      allow update, delete: if isAdminOfSociety(societyId);
+    }
+
+    match /memberships/{membershipDocId} {
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'societyId',
+          'userId',
+          'role',
+          'displayName',
+          'joinedAt'
+        ])
+        && request.resource.data.societyId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.joinedAt is timestamp
+        && isValidMembershipRole(request.resource.data.role)
+        && membershipDocIdMatchesBody(
+          membershipDocId,
+          request.resource.data.societyId,
+          request.resource.data.userId
+        )
+        && exists(/databases/$(database)/documents/societies/$(request.resource.data.societyId));
 
       allow read: if isSignedIn()
         && (
-          resource.data.usedByUid == request.auth.uid
-          || get(listRef(resource.data.listId)).data.ownerId == request.auth.uid
+          resource.data.userId == request.auth.uid
+          || isAdminOfSociety(resource.data.societyId)
         );
+
+      allow update, delete: if isSignedIn() && isAdminOfSociety(resource.data.societyId);
     }
 
-    match /places/{placeId} {
+    match /contributions/{contributionId} {
       allow create: if isSignedIn()
-        && request.resource.data.listId is string
-        && isListMember(request.resource.data.listId)
-        && request.resource.data.imageUrls is list
-        && request.resource.data.imageUrls.size() <= 5
-        && (!('mainImageUrl' in request.resource.data)
-          || request.resource.data.mainImageUrl is string);
+        && request.resource.data.keys().hasOnly([
+          'societyId',
+          'userId',
+          'userName',
+          'amount',
+          'popUrl',
+          'status',
+          'submittedAt'
+        ])
+        && request.resource.data.societyId is string
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userName is string
+        && request.resource.data.amount is number
+        && request.resource.data.popUrl is string
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.status == 'pending'
+        && isMemberOfSociety(request.resource.data.societyId);
 
-      allow read: if isListMember(resource.data.listId);
+      allow read: if isSignedIn() && isMemberOfSociety(resource.data.societyId);
 
-      allow update: if isListMember(resource.data.listId)
-        && request.resource.data.listId == resource.data.listId
-        && request.resource.data.imageUrls is list
-        && request.resource.data.imageUrls.size() <= 5
-        && (!('mainImageUrl' in request.resource.data)
-          || request.resource.data.mainImageUrl is string);
+      // Admin can review and transition contribution status.
+      allow update: if isSignedIn()
+        && isAdminOfSociety(resource.data.societyId)
+        && request.resource.data.societyId == resource.data.societyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.userName == resource.data.userName
+        && request.resource.data.amount == resource.data.amount
+        && request.resource.data.popUrl == resource.data.popUrl
+        && request.resource.data.submittedAt == resource.data.submittedAt
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'rejected']
+        && isValidContributionStatus(request.resource.data.status);
 
-      allow delete: if isListMember(resource.data.listId);
+      // Members can revise only their own pending submission details.
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && isMemberOfSociety(resource.data.societyId)
+        && resource.data.status == 'pending'
+        && request.resource.data.societyId == resource.data.societyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.userName == resource.data.userName
+        && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number
+        && request.resource.data.popUrl is string
+        && request.resource.data.submittedAt == resource.data.submittedAt;
+
+      allow delete: if isSignedIn() && isAdminOfSociety(resource.data.societyId);
     }
   }
 }

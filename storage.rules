@@ -1,10 +1,47 @@
 rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membershipRef(societyId, userId) {
+      return /databases/(default)/documents/memberships/$(societyId)_$(userId);
+    }
+
+    function isMemberOfSociety(societyId) {
+      return isSignedIn() && firestore.exists(membershipRef(societyId, request.auth.uid));
+    }
+
+    function isAdminOfSociety(societyId) {
+      return isMemberOfSociety(societyId)
+        && firestore.get(membershipRef(societyId, request.auth.uid)).data.role == 'admin';
+    }
+
+    function hasContributionMetadata() {
+      return request.resource != null
+        && request.resource.metadata != null
+        && request.resource.metadata.contributionId is string
+        && request.resource.metadata.contributionId.size() > 0;
+    }
+
+    function isCanonicalPopFile(fileName) {
+      return request.auth != null
+        && fileName.matches('^' + request.auth.uid + '_[0-9]+\\.jpg$');
+    }
+
+    match /societies/{societyId}/pops/{fileName} {
+      allow read: if isMemberOfSociety(societyId);
+
+      // Members can upload/update their own POP file shape only.
+      allow create, update: if isMemberOfSociety(societyId)
+        && isCanonicalPopFile(fileName)
+        && hasContributionMetadata();
+
+      // Admin-only cleanup path.
+      allow delete: if isAdminOfSociety(societyId);
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
