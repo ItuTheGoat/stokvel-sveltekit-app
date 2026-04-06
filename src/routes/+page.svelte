@@ -51,6 +51,27 @@
 	</div>
 
 	<main class="relative z-0 mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 text-ink sm:px-6 sm:py-8">
+		<section class="rounded-[16px] bg-surface-lowest p-5 shadow-ambient sm:p-6">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div class="space-y-1">
+					<p class="text-xs font-semibold tracking-[0.08em] text-[rgb(27_27_31_/_64%)] uppercase">
+						Society Admin
+					</p>
+					<p class="text-sm text-[rgb(27_27_31_/_78%)]">
+						Manage your societies or create a new one.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<a href="/societies">
+						<Button variant="secondary" size="sm">View societies</Button>
+					</a>
+					<a href="/societies/new">
+						<Button size="sm">Create society</Button>
+					</a>
+				</div>
+			</div>
+		</section>
+
 		<section class="rounded-[16px] bg-surface-low p-5 shadow-ambient sm:p-7">
 			<header class="space-y-2">
 				<p class="text-xs font-semibold tracking-[0.08em] text-[rgb(27_27_31_/_64%)] uppercase">
