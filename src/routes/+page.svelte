@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { authState, signOutUser } from '$lib/auth';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
@@ -17,6 +18,14 @@
 			description: 'Keep status, intent and next action grouped in breathable cards and tonal depth.'
 		}
 	];
+
+	const handleSignOut = async () => {
+		try {
+			await signOutUser();
+		} catch (error) {
+			console.error('Sign out failed', error);
+		}
+	};
 </script>
 
 <svelte:head>
@@ -33,6 +42,11 @@
 			<p class="text-xs font-medium tracking-[0.08em] text-[rgb(27_27_31_/_72%)] uppercase">
 				Compact Showcase Surface
 			</p>
+			<div class="ml-auto">
+				<Button variant="ghost" onclick={handleSignOut} disabled={$authState.isLoading}>
+					Sign out (test)
+				</Button>
+			</div>
 		</div>
 	</div>
 

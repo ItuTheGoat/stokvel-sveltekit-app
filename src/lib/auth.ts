@@ -2,12 +2,10 @@ import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 import {
 	GoogleAuthProvider,
-	getAdditionalUserInfo,
 	onAuthStateChanged,
 	signInWithPopup,
 	signOut,
-	type User,
-	type UserCredential
+	type User
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getFirebaseServices } from '$lib/firebase';
@@ -52,7 +50,7 @@ const createUserDocument = async (user: User) => {
 	});
 };
 
-export const ensureUserDocument = async (user: User) => {
+const syncUserDocumentAfterSignIn = async (user: User) => {
 	const { db } = getFirebaseServices();
 	const userRef = doc(db, 'users', user.uid);
 	const snapshot = await getDoc(userRef);
@@ -73,6 +71,8 @@ export const ensureUserDocument = async (user: User) => {
 	);
 };
 
+export const ensureUserDocument = syncUserDocumentAfterSignIn;
+
 export const startAuthListener = () => {
 	if (!browser || hasStartedAuthListener) return;
 
@@ -84,7 +84,7 @@ export const startAuthListener = () => {
 		async (user) => {
 			try {
 				if (user) {
-					await ensureUserDocument(user);
+					await syncUserDocumentAfterSignIn(user);
 				}
 
 				authState.set({
@@ -113,7 +113,7 @@ export const startAuthListener = () => {
 	);
 };
 
-const authenticateWithGoogle = async (): Promise<UserCredential> => {
+const authenticateWithGoogle = async () => {
 	const { auth } = getFirebaseServices();
 	authState.update((state) => ({ ...state, isLoading: true, error: null }));
 
@@ -133,13 +133,7 @@ const authenticateWithGoogle = async (): Promise<UserCredential> => {
 export const signUpWithGoogle = async () => {
 	try {
 		const credential = await authenticateWithGoogle();
-		const additionalUserInfo = getAdditionalUserInfo(credential);
-		if (additionalUserInfo?.isNewUser) {
-			await createUserDocument(credential.user);
-		} else {
-			// Safety net when "sign up" is used by an existing account.
-			await ensureUserDocument(credential.user);
-		}
+		await syncUserDocumentAfterSignIn(credential.user);
 		authState.update((state) => ({ ...state, isLoading: false, error: null }));
 		return credential.user;
 	} catch (error) {
@@ -150,7 +144,7 @@ export const signUpWithGoogle = async () => {
 export const signInWithGoogle = async () => {
 	try {
 		const credential = await authenticateWithGoogle();
-		await ensureUserDocument(credential.user);
+		await syncUserDocumentAfterSignIn(credential.user);
 		authState.update((state) => ({ ...state, isLoading: false, error: null }));
 		return credential.user;
 	} catch (error) {
