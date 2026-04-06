@@ -17,13 +17,29 @@ service cloud.firestore {
       return /databases/$(database)/documents/memberships/$(membershipId(societyId, userId));
     }
 
+    function societyRef(societyId) {
+      return /databases/$(database)/documents/societies/$(societyId);
+    }
+
+    function isCreatorOfSociety(societyId) {
+      return isSignedIn()
+        && exists(societyRef(societyId))
+        && get(societyRef(societyId)).data.creatorId == request.auth.uid;
+    }
+
     function isMemberOfSociety(societyId) {
       return isSignedIn() && exists(membershipRef(societyId, request.auth.uid));
     }
 
     function isAdminOfSociety(societyId) {
-      return isMemberOfSociety(societyId)
-        && get(membershipRef(societyId, request.auth.uid)).data.role == 'admin';
+      return isSignedIn()
+        && (
+          (
+            exists(membershipRef(societyId, request.auth.uid))
+            && get(membershipRef(societyId, request.auth.uid)).data.role == 'admin'
+          )
+          || isCreatorOfSociety(societyId)
+        );
     }
 
     function isValidInterval(interval) {
@@ -90,7 +106,7 @@ service cloud.firestore {
           request.resource.data.societyId,
           request.resource.data.userId
         )
-        && exists(/databases/$(database)/documents/societies/$(request.resource.data.societyId));
+        && existsAfter(/databases/$(database)/documents/societies/$(request.resource.data.societyId));
 
       allow read: if isSignedIn()
         && (
