@@ -1,0 +1,13 @@
+---
+description: SvelteKit Capacitor SPA routing conventions
+globs:
+  - src/routes/**/*
+alwaysApply: true
+---
+
+This project targets Capacitor deployment and should stay SPA-first.
+
+- Prefer universal route modules: `+page.ts`, `+layout.ts`, and `+error.ts`.
+- Prefer server variants (`+page.server.ts`, `+layout.server.ts`) only when strictly required for server-only concerns such as private secrets, secure credentials, or trusted backend-only operations.
+- Keep default routing behavior compatible with SPA static hosting (`adapter-static` + fallback).
+- If adding prerendering in SPA mode, use route-level options and pair `prerender = true` with `ssr = true` for that route.
