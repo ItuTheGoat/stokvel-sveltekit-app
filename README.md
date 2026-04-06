@@ -1,110 +1,42 @@
-# Luma: The Modern South African Stokvel 🇿🇦
+# sv
 
-Luma is a high-performance, mobile-first community savings (stokvel) platform. It digitizes traditional trust-based savings circles with transparent records, automated tracking, and secure proof-of-payment management.
+Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
-Built with Svelte 5, Luma delivers a fluid app-like experience across web and mobile.
+## Creating a project
 
-## 🛠️ The Stack
+If you're seeing this, you've probably already done this step. Congrats!
 
-### Frontend & Framework
-- **SvelteKit (Adapter-Static):** Configured as a single-page app (SPA) for seamless native wrapping via Capacitor.
-- **Svelte 5 (Runes):** Uses `$state`, `$derived`, and `$effect` for fine-grained reactivity and efficient UI updates.
-- **Tailwind CSS:** Rapid, utility-first responsive styling.
-- **shadcn-svelte:** Accessible, high-quality UI components.
-
-### Form Handling & Validation
-- **Superforms:** Robust form state and validation flow for Svelte.
-- **Zod:** TypeScript-first schema validation for rules and contribution data.
-
-### Backend-as-a-Service (BaaS)
-- **Firebase Auth:** OTP and social authentication.
-- **Cloud Firestore:** Real-time, multi-tenant NoSQL data layer.
-- **Firebase Storage:** Secure storage for proof-of-payment images and user documents.
-
-### Runtime & Tooling
-- **Bun:** Fast runtime, package manager, and test runner.
-
-## 🚀 Key Features (v1 MVP)
-
-### For Society Admins
-- **Society CRUD:** Create and manage societies, goals, and rules.
-- **Rule Management:** Configure contribution amounts, frequency (weekly/monthly/quarterly), and member caps.
-- **Ledger Oversight:** Approve or reject member contributions from uploaded proof of payment.
-- **Invite System:** Share 8-digit alphanumeric invite codes via WhatsApp or deep links.
-
-### For Society Members
-- **Multi-Society Access:** Participate in multiple savings groups.
-- **Secure Contributions:** Upload digital proof-of-payment from mobile gallery.
-- **Contribution History:** Transparent view of personal and society progress.
-
-## 🏗️ Architecture
-
-Luma uses a flat-collection, multi-tenant Firestore model. This allows users to be admins in some societies and members in others without duplication or deep nesting.
-
-- Svelte 5 runes manage global app state (for example, user session and active society) without traditional stores.
-- Superforms powers the multi-step Society Setup flow with Zod validation before writes.
-
-## 🏃 Getting Started
-
-### Prerequisites
-- Bun installed locally.
-- A Firebase project with Firestore, Auth, and Storage enabled.
-
-### Installation
-```bash
-# Clone the repo
-git clone https://github.com/your-username/luma.git
-
-# Install dependencies
-bun install
-
-# Setup environment variables
-cp .env.example .env
+```sh
+# create a new project
+npx sv create my-app
 ```
 
-### Development
-```bash
-# Start the SvelteKit dev server
-bun run dev
+To recreate this project with the same configuration:
 
-# Build the static site (for Capacitor sync)
-bun run build
+```sh
+# recreate this project
+bun x sv@0.14.0 create --template minimal --types ts --add eslint tailwindcss="plugins:none" mcp="ide:cursor+setup:local" prettier --install bun .
 ```
 
-## 📱 Mobile Deployment (Capacitor)
+## Developing
 
-Luma is built to be wrapped with Capacitor for native features such as camera uploads (proof of payment) and contacts for invites.
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
-```bash
-# Build static output
-bun run build
+```sh
+npm run dev
 
-# Sync to native platforms
-npx cap sync
-
-# Open native project
-npx cap open android
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
 ```
 
-## 📂 Folder Structure
+## Building
 
-```text
-src/
-├── lib/
-│   ├── components/     # shadcn-svelte UI components
-│   ├── schema/         # Zod validation schemas
-│   └── firebase/       # Client-side SDK initialization
-├── routes/
-│   ├── (auth)/         # Login, register, OTP flows
-│   ├── (app)/          # Protected dashboard and admin routes
-│   └── join/[code]/    # Dynamic invite link handling
-└── static/             # Assets and branding
+To create a production version of your app:
+
+```sh
+npm run build
 ```
 
-## Pro Tip
+You can preview the production build with `npm run preview`.
 
-When adding new shadcn components with Bun:
-
-```bash
-bun x shadcn-svelte@latest add [component-name]
-```
+> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
