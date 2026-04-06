@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { authState, signInWithGoogle } from '$lib/auth';
+	import { authState, signUpWithGoogle } from '$lib/auth';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 
@@ -8,7 +8,7 @@
 	const handleGoogleSignUp = async () => {
 		localError = null;
 		try {
-			await signInWithGoogle();
+			await signUpWithGoogle();
 		} catch (error) {
 			localError = error instanceof Error ? error.message : 'Unable to create your account with Google.';
 		}
