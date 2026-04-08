@@ -130,27 +130,24 @@ const authenticateWithGoogle = async () => {
 	}
 };
 
-export const signUpWithGoogle = async () => {
+const completeGoogleAuth = async () => {
+	const credential = await authenticateWithGoogle();
 	try {
-		const credential = await authenticateWithGoogle();
 		await syncUserDocumentAfterSignIn(credential.user);
-		authState.update((state) => ({ ...state, isLoading: false, error: null }));
-		return credential.user;
 	} catch (error) {
+		authState.update((state) => ({
+			...state,
+			isLoading: false,
+			error: error instanceof Error ? error.message : 'Failed to sync user profile.'
+		}));
 		throw error;
 	}
+	authState.update((state) => ({ ...state, isLoading: false, error: null }));
+	return credential.user;
 };
 
-export const signInWithGoogle = async () => {
-	try {
-		const credential = await authenticateWithGoogle();
-		await syncUserDocumentAfterSignIn(credential.user);
-		authState.update((state) => ({ ...state, isLoading: false, error: null }));
-		return credential.user;
-	} catch (error) {
-		throw error;
-	}
-};
+export const signUpWithGoogle = completeGoogleAuth;
+export const signInWithGoogle = completeGoogleAuth;
 
 export const signOutUser = async () => {
 	const { auth } = getFirebaseServices();
