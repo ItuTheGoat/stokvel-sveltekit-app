@@ -43,11 +43,41 @@ service cloud.firestore {
     }
 
     function isValidInterval(interval) {
-      return interval in ['weekly', 'monthly', 'quarterly'];
+      return interval == 'monthly';
+    }
+
+    function isValidContributionDuePreset(preset) {
+      return preset in ['first_of_month', 'last_of_month', 'day_25', 'other'];
+    }
+
+    function isValidContributionDueDetails(rules) {
+      return rules.contributionDueOtherDetail is string
+        && rules.contributionDueOtherDetail.size() <= 120
+        && (
+          (
+            rules.contributionDuePreset == 'other'
+            && rules.contributionDueOtherDetail.size() >= 1
+          )
+          || (
+            rules.contributionDuePreset != 'other'
+            && rules.contributionDueOtherDetail.size() == 0
+          )
+        );
     }
 
     function isValidMembershipRole(role) {
       return role in ['admin', 'member'];
+    }
+
+    function isValidSocietyType(type) {
+      return type in [
+        'Savings',
+        'Investment',
+        'Burial Society',
+        'Education fund',
+        'Business fund',
+        'other'
+      ];
     }
 
     function isValidContributionStatus(status) {
@@ -67,24 +97,86 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.keys().hasOnly([
           'name',
+          'type',
+          'description',
           'inviteCode',
           'creatorId',
           'totalPot',
           'rules'
         ])
         && request.resource.data.name is string
+        && isValidSocietyType(request.resource.data.type)
+        && (
+          !('description' in request.resource.data)
+          || (
+            request.resource.data.description is string
+            && request.resource.data.description.size() <= 160
+          )
+        )
         && request.resource.data.inviteCode is string
         && request.resource.data.creatorId == request.auth.uid
         && request.resource.data.totalPot is number
         && request.resource.data.rules is map
-        && request.resource.data.rules.keys().hasOnly(['amount', 'interval', 'maxMembers', 'startDate'])
+        && request.resource.data.rules.keys().hasOnly([
+          'amount',
+          'interval',
+          'contributionDuePreset',
+          'contributionDueOtherDetail',
+          'maxMembers',
+          'startDate',
+          'endDate'
+        ])
         && request.resource.data.rules.amount is number
+        && isValidContributionDuePreset(request.resource.data.rules.contributionDuePreset)
+        && isValidContributionDueDetails(request.resource.data.rules)
         && request.resource.data.rules.maxMembers is number
         && request.resource.data.rules.startDate is timestamp
+        && request.resource.data.rules.endDate is timestamp
+        && request.resource.data.rules.endDate >= request.resource.data.rules.startDate
         && isValidInterval(request.resource.data.rules.interval);
 
       allow read: if isMemberOfSociety(societyId);
-      allow update, delete: if isAdminOfSociety(societyId);
+      allow update: if isAdminOfSociety(societyId)
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'type',
+          'description',
+          'inviteCode',
+          'creatorId',
+          'totalPot',
+          'rules'
+        ])
+        && request.resource.data.name is string
+        && isValidSocietyType(request.resource.data.type)
+        && (
+          !('description' in request.resource.data)
+          || (
+            request.resource.data.description is string
+            && request.resource.data.description.size() <= 160
+          )
+        )
+        && request.resource.data.inviteCode is string
+        && request.resource.data.creatorId is string
+        && request.resource.data.totalPot is number
+        && request.resource.data.rules is map
+        && request.resource.data.rules.keys().hasOnly([
+          'amount',
+          'interval',
+          'contributionDuePreset',
+          'contributionDueOtherDetail',
+          'maxMembers',
+          'startDate',
+          'endDate'
+        ])
+        && request.resource.data.rules.amount is number
+        && isValidContributionDuePreset(request.resource.data.rules.contributionDuePreset)
+        && isValidContributionDueDetails(request.resource.data.rules)
+        && request.resource.data.rules.maxMembers is number
+        && request.resource.data.rules.startDate is timestamp
+        && request.resource.data.rules.endDate is timestamp
+        && request.resource.data.rules.endDate >= request.resource.data.rules.startDate
+        && isValidInterval(request.resource.data.rules.interval);
+      allow delete: if isAdminOfSociety(societyId);
     }
 
     match /memberships/{membershipDocId} {

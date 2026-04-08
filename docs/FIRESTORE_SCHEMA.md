@@ -35,6 +35,8 @@ This model is optimized for fast mobile dashboard reads (for example, "My Societ
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | `name` | string | yes | Name of the stokvel. |
+| `type` | `'Savings' \| 'Investment' \| 'Burial Society' \| 'Education fund' \| 'Business fund' \| 'other'` | yes | Society category used for classification and reporting. |
+| `description` | string | no | Optional short society description (max 160 chars). |
 | `inviteCode` | string | yes | Unique 8-char alphanumeric code (example: `LUMA-X8Y`). |
 | `creatorId` | string | yes | UID of the user who created the society. |
 | `totalPot` | number | yes | Aggregated sum of approved contributions. |
@@ -44,10 +46,13 @@ This model is optimized for fast mobile dashboard reads (for example, "My Societ
 
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| `amount` | number | yes | Expected contribution amount per interval. |
-| `interval` | `'weekly' \| 'monthly' \| 'quarterly'` | yes | Contribution cadence. |
+| `amount` | number | yes | Expected contribution amount per month. |
+| `interval` | `'monthly'` | yes | Contribution cadence (monthly only). |
+| `contributionDuePreset` | `'first_of_month' \| 'last_of_month' \| 'day_25' \| 'other'` | yes | Contribution due-date preset used for reminder scheduling. |
+| `contributionDueOtherDetail` | string | yes | Custom due-date detail when `contributionDuePreset` is `other`; otherwise an empty string. |
 | `maxMembers` | number | yes | Maximum allowed member count. |
 | `startDate` | timestamp | yes | Society start date. |
+| `endDate` | timestamp | yes | Society end date; must be on or after `startDate`. |
 
 ### `/memberships` (Collection)
 
