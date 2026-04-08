@@ -2,7 +2,12 @@
 	import { authState } from '$lib/auth';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
-	import { getAdminSocietiesForUser, type Society } from '$lib/societies';
+	import {
+		calculateSocietyContributionGoal,
+		getAdminSocietiesForUser,
+		getContributionDueDescription,
+		type Society
+	} from '$lib/societies';
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
@@ -85,10 +90,21 @@
 							<p class="text-sm text-[rgb(27_27_31_/_75%)]">
 								Total pot: {society.totalPot.toLocaleString()}
 							</p>
+							<p class="text-sm text-[rgb(27_27_31_/_75%)]">Type: {society.type}</p>
+							{#if society.description}
+								<p class="text-sm text-[rgb(27_27_31_/_75%)]">Description: {society.description}</p>
+							{/if}
 							<p class="text-sm text-[rgb(27_27_31_/_75%)]">
-								Rules: {society.rules.amount.toLocaleString()} / {society.rules.interval}, up to
-								{society.rules.maxMembers} members, starts
-								{society.rules.startDate.toDate().toLocaleDateString()}.
+								Contribution goal: {calculateSocietyContributionGoal(society).toLocaleString()}
+							</p>
+							<p class="text-sm text-[rgb(27_27_31_/_75%)]">
+								Monthly contribution {society.rules.amount.toLocaleString()} each; due
+								{getContributionDueDescription({
+									contributionDuePreset: society.rules.contributionDuePreset,
+									contributionDueOtherDetail: society.rules.contributionDueOtherDetail
+								})}. Up to {society.rules.maxMembers} members; starts
+								{society.rules.startDate.toDate().toLocaleDateString()}, ends
+								{society.rules.endDate.toDate().toLocaleDateString()}.
 							</p>
 						</div>
 						<div class="flex items-center gap-3 text-sm">

@@ -5,8 +5,13 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import {
-		SOCIETY_INTERVALS,
+		DEFAULT_DUE_PRESET,
+		DUE_PRESET_LABELS,
+		MAX_DUE_DETAIL_LENGTH,
+		SOCIETY_DUE_PRESETS,
+		SOCIETY_TYPES,
 		createSocietyWithCreatorAdminMembership,
+		getContributionDueDescription,
 		parseDateInput,
 		validateSocietyForm,
 		type SocietyFormErrors,
@@ -19,39 +24,36 @@
 	let formErrors = $state<SocietyFormErrors>({});
 	let form = $state<SocietyFormInput>({
 		name: '',
+		type: SOCIETY_TYPES[0],
+		description: '',
 		amount: 0,
-		interval: SOCIETY_INTERVALS[0],
+		contributionDuePreset: DEFAULT_DUE_PRESET,
+		contributionDueOtherDetail: '',
 		maxMembers: 2,
-		startDate: ''
+		startDate: '',
+		endDate: ''
 	});
 
-	const intervalLabelMap = {
-		weekly: 'Weekly',
-		monthly: 'Monthly',
-		quarterly: 'Quarterly'
-	} satisfies Record<(typeof SOCIETY_INTERVALS)[number], string>;
-
 	const isStepOneValid = $derived(Boolean(form.name.trim()));
+	const placeholderName = $derived(form.name.trim() || 'placeholder');
+	const stepTwoValidation = $derived(validateSocietyForm({ ...form, name: placeholderName }));
 	const isStepTwoValid = $derived(
-		!validateSocietyForm({
-			...form,
-			name: form.name.trim() || 'placeholder'
-		}).amount &&
-			!validateSocietyForm({
-				...form,
-				name: form.name.trim() || 'placeholder'
-			}).interval &&
-			!validateSocietyForm({
-				...form,
-				name: form.name.trim() || 'placeholder'
-			}).maxMembers &&
-			!validateSocietyForm({
-				...form,
-				name: form.name.trim() || 'placeholder'
-			}).startDate
+		!stepTwoValidation.amount &&
+			!stepTwoValidation.contributionDuePreset &&
+			!stepTwoValidation.contributionDueOtherDetail &&
+			!stepTwoValidation.maxMembers &&
+			!stepTwoValidation.startDate &&
+			!stepTwoValidation.endDate
 	);
 	const canSubmit = $derived(isStepOneValid && isStepTwoValid && !submitting);
 	const parsedStartDate = $derived(parseDateInput(form.startDate));
+	const parsedEndDate = $derived(parseDateInput(form.endDate));
+	const reviewDueDescription = $derived(
+		getContributionDueDescription({
+			contributionDuePreset: form.contributionDuePreset,
+			contributionDueOtherDetail: form.contributionDueOtherDetail
+		})
+	);
 
 	const setFieldError = (field: keyof SocietyFormInput, message?: string) => {
 		formErrors = { ...formErrors, [field]: message };
@@ -60,14 +62,23 @@
 	const validateCurrentStep = () => {
 		if (step === 1) {
 			const hasName = Boolean(form.name.trim());
+			const hasType = SOCIETY_TYPES.includes(form.type);
 			setFieldError('name', hasName ? undefined : 'Society name is required.');
-			return hasName;
+			setFieldError('type', hasType ? undefined : 'Society type is required.');
+			return hasName && hasType;
 		}
 
 		if (step === 2) {
-			const errors = validateSocietyForm({ ...form, name: form.name.trim() || 'placeholder' });
+			const errors = validateSocietyForm({ ...form, name: placeholderName });
 			formErrors = { ...formErrors, ...errors };
-			return !errors.amount && !errors.interval && !errors.maxMembers && !errors.startDate;
+			return (
+				!errors.amount &&
+				!errors.contributionDuePreset &&
+				!errors.contributionDueOtherDetail &&
+				!errors.maxMembers &&
+				!errors.startDate &&
+				!errors.endDate
+			);
 		}
 
 		return true;
@@ -100,8 +111,8 @@
 			return;
 		}
 
-		if (!parsedStartDate) {
-			submitError = 'Start date is required.';
+		if (!parsedStartDate || !parsedEndDate) {
+			submitError = 'Start date and end date are required.';
 			return;
 		}
 
@@ -109,12 +120,16 @@
 		try {
 			const result = await createSocietyWithCreatorAdminMembership({
 				name: form.name,
+				type: form.type,
+				description: form.description,
 				creatorId: user.uid,
 				creatorDisplayName: user.displayName ?? user.email ?? 'New member',
 				amount: form.amount,
-				interval: form.interval,
+				contributionDuePreset: form.contributionDuePreset,
+				contributionDueOtherDetail: form.contributionDueOtherDetail,
 				maxMembers: form.maxMembers,
-				startDate: parsedStartDate
+				startDate: parsedStartDate,
+				endDate: parsedEndDate
 			});
 			await goto(`/societies/${result.societyId}`);
 		} catch (error) {
@@ -145,23 +160,62 @@
 			<a class="text-sm font-semibold underline" href="/sign-in">Go to sign in</a>
 		{:else}
 			{#if step === 1}
-				<div class="space-y-2">
-					<label class="text-sm font-medium" for="society-name">Society name</label>
-					<Input
-						id="society-name"
-						name="society-name"
-						placeholder="e.g. December Grocery Pot"
-						bind:value={form.name}
-						aria-invalid={Boolean(formErrors.name)}
-					/>
-					{#if formErrors.name}
-						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.name}</p>
-					{/if}
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div class="space-y-2 sm:col-span-2">
+						<label class="text-sm font-medium" for="society-name">Society name</label>
+						<Input
+							id="society-name"
+							name="society-name"
+							placeholder="e.g. December Grocery Pot"
+							bind:value={form.name}
+							aria-invalid={Boolean(formErrors.name)}
+						/>
+						{#if formErrors.name}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.name}</p>
+						{/if}
+					</div>
+					<div class="space-y-2">
+						<label class="text-sm font-medium" for="type">Society type</label>
+						<select
+							id="type"
+							name="type"
+							bind:value={form.type}
+							class="h-12 w-full rounded-[16px] bg-surface-low px-4 text-[0.95rem] text-ink outline-none ghost-outline"
+							aria-invalid={Boolean(formErrors.type)}
+						>
+							{#each SOCIETY_TYPES as societyType (societyType)}
+								<option value={societyType}>{societyType}</option>
+							{/each}
+						</select>
+						{#if formErrors.type}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.type}</p>
+						{/if}
+					</div>
+					<div class="space-y-2 sm:col-span-2">
+						<label class="text-sm font-medium" for="description">Description (optional)</label>
+						<textarea
+							id="description"
+							name="description"
+							rows="3"
+							maxlength="160"
+							bind:value={form.description}
+							class="w-full rounded-[16px] bg-surface-low px-4 py-3 text-[0.95rem] text-ink outline-none ghost-outline"
+							placeholder="A short note about this society"
+							aria-invalid={Boolean(formErrors.description)}
+						></textarea>
+						{#if formErrors.description}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.description}</p>
+						{/if}
+					</div>
 				</div>
 			{:else if step === 2}
 				<div class="grid gap-4 sm:grid-cols-2">
+					<p class="text-sm text-[rgb(27_27_31_/_75%)] sm:col-span-2">
+						Contributions run on a monthly schedule. Set how much each member pays per month and when
+						that amount is due.
+					</p>
 					<div class="space-y-2">
-						<label class="text-sm font-medium" for="amount">Contribution amount</label>
+						<label class="text-sm font-medium" for="amount">Contribution amount (per month)</label>
 						<Input
 							id="amount"
 							name="amount"
@@ -176,25 +230,7 @@
 					</div>
 
 					<div class="space-y-2">
-						<label class="text-sm font-medium" for="interval">Contribution interval</label>
-						<select
-							id="interval"
-							name="interval"
-							bind:value={form.interval}
-							class="h-12 w-full rounded-[16px] bg-surface-low px-4 text-[0.95rem] text-ink outline-none ghost-outline"
-							aria-invalid={Boolean(formErrors.interval)}
-						>
-							{#each SOCIETY_INTERVALS as interval (interval)}
-								<option value={interval}>{intervalLabelMap[interval]}</option>
-							{/each}
-						</select>
-						{#if formErrors.interval}
-							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.interval}</p>
-						{/if}
-					</div>
-
-					<div class="space-y-2">
-						<label class="text-sm font-medium" for="max-members">Maximum members</label>
+						<label class="text-sm font-medium" for="max-members">Maximum members (including you)</label>
 						<Input
 							id="max-members"
 							name="max-members"
@@ -203,10 +239,52 @@
 							bind:value={form.maxMembers}
 							aria-invalid={Boolean(formErrors.maxMembers)}
 						/>
+						<p class="text-sm text-[rgb(27_27_31_/_75%)]">
+							This total includes you as the society admin.
+						</p>
 						{#if formErrors.maxMembers}
 							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.maxMembers}</p>
 						{/if}
 					</div>
+
+					<div class="space-y-2 sm:col-span-2">
+						<fieldset class="space-y-2">
+							<legend class="text-sm font-medium">Contribution due date</legend>
+							<div class="grid gap-2 sm:grid-cols-2">
+								{#each SOCIETY_DUE_PRESETS as preset (preset)}
+									<label class="flex items-center gap-2 text-sm text-ink">
+										<input
+											type="radio"
+											name="contribution-due-preset"
+											value={preset}
+											bind:group={form.contributionDuePreset}
+										/>
+										<span>{DUE_PRESET_LABELS[preset]}</span>
+									</label>
+								{/each}
+							</div>
+						</fieldset>
+						{#if formErrors.contributionDuePreset}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.contributionDuePreset}</p>
+						{/if}
+					</div>
+
+					{#if form.contributionDuePreset === 'other'}
+						<div class="space-y-2 sm:col-span-2">
+							<label class="text-sm font-medium" for="contribution-due-other">Custom due date detail</label>
+							<Input
+								id="contribution-due-other"
+								name="contribution-due-other"
+								maxlength={MAX_DUE_DETAIL_LENGTH}
+								placeholder="e.g. 15th of each month"
+								bind:value={form.contributionDueOtherDetail}
+								aria-invalid={Boolean(formErrors.contributionDueOtherDetail)}
+							/>
+							{#if formErrors.contributionDueOtherDetail}
+								<p class="text-sm text-[rgb(138_0_0)]">{formErrors.contributionDueOtherDetail}</p>
+							{/if}
+						</div>
+					{/if}
 
 					<div class="space-y-2">
 						<label class="text-sm font-medium" for="start-date">Start date</label>
@@ -221,18 +299,38 @@
 							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.startDate}</p>
 						{/if}
 					</div>
+					<div class="space-y-2">
+						<label class="text-sm font-medium" for="end-date">End date</label>
+						<Input
+							id="end-date"
+							name="end-date"
+							type="date"
+							bind:value={form.endDate}
+							aria-invalid={Boolean(formErrors.endDate)}
+						/>
+						{#if formErrors.endDate}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.endDate}</p>
+						{/if}
+					</div>
 				</div>
 			{:else}
 				<div class="space-y-3 text-sm">
 					<p class="text-[rgb(27_27_31_/_75%)]">Review your society before creating it.</p>
 					<div class="grid gap-2 rounded-[12px] bg-surface-low p-4 sm:grid-cols-2">
 						<p><span class="font-semibold">Name:</span> {form.name}</p>
-						<p><span class="font-semibold">Amount:</span> {form.amount.toLocaleString()}</p>
-						<p><span class="font-semibold">Interval:</span> {intervalLabelMap[form.interval]}</p>
-						<p><span class="font-semibold">Max members:</span> {form.maxMembers}</p>
+						<p><span class="font-semibold">Type:</span> {form.type}</p>
+						<p class="sm:col-span-2"><span class="font-semibold">Description:</span> {form.description || '-'}</p>
+						<p><span class="font-semibold">Amount (monthly):</span> {form.amount.toLocaleString()}</p>
+						<p><span class="font-semibold">Schedule:</span> Monthly</p>
+						<p class="sm:col-span-2"><span class="font-semibold">Due:</span> {reviewDueDescription}</p>
+						<p><span class="font-semibold">Max members (including you):</span> {form.maxMembers}</p>
 						<p class="sm:col-span-2">
 							<span class="font-semibold">Start date:</span>
 							{parsedStartDate ? parsedStartDate.toLocaleDateString() : form.startDate}
+						</p>
+						<p class="sm:col-span-2">
+							<span class="font-semibold">End date:</span>
+							{parsedEndDate ? parsedEndDate.toLocaleDateString() : form.endDate}
 						</p>
 					</div>
 				</div>

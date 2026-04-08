@@ -6,7 +6,11 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import {
-		SOCIETY_INTERVALS,
+		DEFAULT_DUE_PRESET,
+		DUE_PRESET_LABELS,
+		MAX_DUE_DETAIL_LENGTH,
+		SOCIETY_DUE_PRESETS,
+		SOCIETY_TYPES,
 		getSocietyById,
 		parseDateInput,
 		updateSocietyById,
@@ -23,19 +27,17 @@
 	let initialized = $state(false);
 	let form = $state<SocietyFormInput>({
 		name: '',
+		type: SOCIETY_TYPES[0],
+		description: '',
 		amount: 0,
-		interval: SOCIETY_INTERVALS[0],
+		contributionDuePreset: DEFAULT_DUE_PRESET,
+		contributionDueOtherDetail: '',
 		maxMembers: 2,
-		startDate: ''
+		startDate: '',
+		endDate: ''
 	});
 
 	const societyId = $derived(page.params.societyId ?? '');
-
-	const intervalLabelMap = {
-		weekly: 'Weekly',
-		monthly: 'Monthly',
-		quarterly: 'Quarterly'
-	} satisfies Record<(typeof SOCIETY_INTERVALS)[number], string>;
 
 	const load = async (id: string) => {
 		loading = true;
@@ -48,10 +50,14 @@
 			}
 			form = {
 				name: society.name,
+				type: society.type,
+				description: society.description ?? '',
 				amount: society.rules.amount,
-				interval: society.rules.interval,
+				contributionDuePreset: society.rules.contributionDuePreset,
+				contributionDueOtherDetail: society.rules.contributionDueOtherDetail,
 				maxMembers: society.rules.maxMembers,
-				startDate: society.rules.startDate.toDate().toISOString().split('T')[0]
+				startDate: society.rules.startDate.toDate().toISOString().split('T')[0],
+				endDate: society.rules.endDate.toDate().toISOString().split('T')[0]
 			};
 		} catch (error) {
 			loadError = error instanceof Error ? error.message : 'Unable to load society.';
@@ -82,9 +88,14 @@
 		formErrors = errors;
 		if (Object.keys(errors).length > 0) return;
 
-		const parsedDate = parseDateInput(form.startDate);
-		if (!parsedDate) {
-			formErrors = { ...formErrors, startDate: 'Start date is required.' };
+		const parsedStartDate = parseDateInput(form.startDate);
+		const parsedEndDate = parseDateInput(form.endDate);
+		if (!parsedStartDate || !parsedEndDate) {
+			formErrors = {
+				...formErrors,
+				startDate: parsedStartDate ? undefined : 'Start date is required.',
+				endDate: parsedEndDate ? undefined : 'End date is required.'
+			};
 			return;
 		}
 
@@ -92,10 +103,14 @@
 		try {
 			await updateSocietyById(societyId, {
 				name: form.name,
+				type: form.type,
+				description: form.description,
 				amount: form.amount,
-				interval: form.interval,
+				contributionDuePreset: form.contributionDuePreset,
+				contributionDueOtherDetail: form.contributionDueOtherDetail,
 				maxMembers: form.maxMembers,
-				startDate: parsedDate
+				startDate: parsedStartDate,
+				endDate: parsedEndDate
 			});
 			await goto(`/societies/${societyId}`);
 		} catch (error) {
@@ -134,9 +149,46 @@
 						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.name}</p>
 					{/if}
 				</div>
+				<div class="space-y-2">
+					<label class="text-sm font-medium" for="type">Society type</label>
+					<select
+						id="type"
+						name="type"
+						bind:value={form.type}
+						class="h-12 w-full rounded-[16px] bg-surface-low px-4 text-[0.95rem] text-ink outline-none ghost-outline"
+						aria-invalid={Boolean(formErrors.type)}
+					>
+						{#each SOCIETY_TYPES as societyType (societyType)}
+							<option value={societyType}>{societyType}</option>
+						{/each}
+					</select>
+					{#if formErrors.type}
+						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.type}</p>
+					{/if}
+				</div>
+				<div class="space-y-2 sm:col-span-2">
+					<label class="text-sm font-medium" for="description">Description (optional)</label>
+					<textarea
+						id="description"
+						name="description"
+						rows="3"
+						maxlength="160"
+						bind:value={form.description}
+						class="w-full rounded-[16px] bg-surface-low px-4 py-3 text-[0.95rem] text-ink outline-none ghost-outline"
+						placeholder="A short note about this society"
+						aria-invalid={Boolean(formErrors.description)}
+					></textarea>
+					{#if formErrors.description}
+						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.description}</p>
+					{/if}
+				</div>
+
+				<p class="text-sm text-[rgb(27_27_31_/_75%)] sm:col-span-2">
+					Contributions run on a monthly schedule. Set the per-member monthly amount and when it is due.
+				</p>
 
 				<div class="space-y-2">
-					<label class="text-sm font-medium" for="amount">Contribution amount</label>
+					<label class="text-sm font-medium" for="amount">Contribution amount (per month)</label>
 					<Input
 						id="amount"
 						name="amount"
@@ -147,24 +199,6 @@
 					/>
 					{#if formErrors.amount}
 						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.amount}</p>
-					{/if}
-				</div>
-
-				<div class="space-y-2">
-					<label class="text-sm font-medium" for="interval">Contribution interval</label>
-					<select
-						id="interval"
-						name="interval"
-						bind:value={form.interval}
-						class="h-12 w-full rounded-[16px] bg-surface-low px-4 text-[0.95rem] text-ink outline-none ghost-outline"
-						aria-invalid={Boolean(formErrors.interval)}
-					>
-						{#each SOCIETY_INTERVALS as interval (interval)}
-							<option value={interval}>{intervalLabelMap[interval]}</option>
-						{/each}
-					</select>
-					{#if formErrors.interval}
-						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.interval}</p>
 					{/if}
 				</div>
 
@@ -183,6 +217,45 @@
 					{/if}
 				</div>
 
+				<div class="space-y-2 sm:col-span-2">
+					<fieldset class="space-y-2">
+						<legend class="text-sm font-medium">Contribution due date</legend>
+						<div class="grid gap-2 sm:grid-cols-2">
+							{#each SOCIETY_DUE_PRESETS as preset (preset)}
+								<label class="flex items-center gap-2 text-sm text-ink">
+									<input
+										type="radio"
+										name="contribution-due-preset"
+										value={preset}
+										bind:group={form.contributionDuePreset}
+									/>
+									<span>{DUE_PRESET_LABELS[preset]}</span>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
+					{#if formErrors.contributionDuePreset}
+						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.contributionDuePreset}</p>
+					{/if}
+				</div>
+
+				{#if form.contributionDuePreset === 'other'}
+					<div class="space-y-2 sm:col-span-2">
+						<label class="text-sm font-medium" for="contribution-due-other">Custom due date detail</label>
+						<Input
+							id="contribution-due-other"
+							name="contribution-due-other"
+							maxlength={MAX_DUE_DETAIL_LENGTH}
+							placeholder="e.g. 15th of each month"
+							bind:value={form.contributionDueOtherDetail}
+							aria-invalid={Boolean(formErrors.contributionDueOtherDetail)}
+						/>
+						{#if formErrors.contributionDueOtherDetail}
+							<p class="text-sm text-[rgb(138_0_0)]">{formErrors.contributionDueOtherDetail}</p>
+						{/if}
+					</div>
+				{/if}
+
 				<div class="space-y-2">
 					<label class="text-sm font-medium" for="start-date">Start date</label>
 					<Input
@@ -194,6 +267,19 @@
 					/>
 					{#if formErrors.startDate}
 						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.startDate}</p>
+					{/if}
+				</div>
+				<div class="space-y-2">
+					<label class="text-sm font-medium" for="end-date">End date</label>
+					<Input
+						id="end-date"
+						name="end-date"
+						type="date"
+						bind:value={form.endDate}
+						aria-invalid={Boolean(formErrors.endDate)}
+					/>
+					{#if formErrors.endDate}
+						<p class="text-sm text-[rgb(138_0_0)]">{formErrors.endDate}</p>
 					{/if}
 				</div>
 			</div>

@@ -2,7 +2,12 @@
 	import { page } from '$app/state';
 	import { authState } from '$lib/auth';
 	import { Card } from '$lib/components/ui/card';
-	import { getSocietyById, type Society } from '$lib/societies';
+	import {
+		calculateSocietyContributionGoal,
+		getContributionDueDescription,
+		getSocietyById,
+		type Society
+	} from '$lib/societies';
 
 	let loading = $state(false);
 	let error = $state<string | null>(null);
@@ -81,15 +86,33 @@
 	{:else}
 		<Card class="space-y-3 bg-surface-lowest">
 			<h1 class="text-2xl font-bold text-ink">{society.name}</h1>
+			<p class="text-sm text-[rgb(27_27_31_/_75%)]">Type: {society.type}</p>
+			{#if society.description}
+				<p class="text-sm text-[rgb(27_27_31_/_75%)]">Description: {society.description}</p>
+			{/if}
 			<p class="text-sm text-[rgb(27_27_31_/_75%)]">Invite code: {society.inviteCode}</p>
 			<p class="text-sm text-[rgb(27_27_31_/_75%)]">Total pot: {society.totalPot.toLocaleString()}</p>
+			<p class="text-sm text-[rgb(27_27_31_/_75%)]">
+				Contribution goal: {calculateSocietyContributionGoal(society).toLocaleString()}
+			</p>
 			<div class="grid gap-2 rounded-[12px] bg-surface-low p-4 text-sm sm:grid-cols-2">
-				<p><span class="font-semibold">Amount:</span> {society.rules.amount.toLocaleString()}</p>
-				<p><span class="font-semibold">Interval:</span> {society.rules.interval}</p>
+				<p><span class="font-semibold">Amount (monthly):</span> {society.rules.amount.toLocaleString()}</p>
+				<p><span class="font-semibold">Schedule:</span> Monthly</p>
+				<p class="sm:col-span-2">
+					<span class="font-semibold">Due:</span>
+					{getContributionDueDescription({
+						contributionDuePreset: society.rules.contributionDuePreset,
+						contributionDueOtherDetail: society.rules.contributionDueOtherDetail
+					})}
+				</p>
 				<p><span class="font-semibold">Max members:</span> {society.rules.maxMembers}</p>
 				<p>
 					<span class="font-semibold">Start date:</span>
 					{society.rules.startDate.toDate().toLocaleDateString()}
+				</p>
+				<p>
+					<span class="font-semibold">End date:</span>
+					{society.rules.endDate.toDate().toLocaleDateString()}
 				</p>
 			</div>
 		</Card>
