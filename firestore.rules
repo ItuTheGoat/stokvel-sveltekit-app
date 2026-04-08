@@ -156,7 +156,7 @@ service cloud.firestore {
           )
         )
         && request.resource.data.inviteCode is string
-        && request.resource.data.creatorId is string
+        && request.resource.data.creatorId == resource.data.creatorId
         && request.resource.data.totalPot is number
         && request.resource.data.rules is map
         && request.resource.data.rules.keys().hasOnly([
@@ -249,6 +249,15 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && isMemberOfSociety(resource.data.societyId)
         && resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly([
+          'societyId',
+          'userId',
+          'userName',
+          'amount',
+          'popUrl',
+          'status',
+          'submittedAt'
+        ])
         && request.resource.data.societyId == resource.data.societyId
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.userName == resource.data.userName
