@@ -73,6 +73,7 @@
 				type="button"
 				onclick={() => {
 					if (!societyId) return;
+					loadedId = null;
 					void loadSociety(societyId);
 				}}
 			>

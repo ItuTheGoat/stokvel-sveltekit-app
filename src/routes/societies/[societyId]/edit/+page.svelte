@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { getFirebaseServices } from '$lib/firebase';
 	import { authState } from '$lib/auth';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
+	import { doc, getDoc } from 'firebase/firestore';
 	import {
 		DEFAULT_DUE_PRESET,
 		DUE_PRESET_LABELS,
@@ -25,6 +27,7 @@
 	let saveError = $state<string | null>(null);
 	let formErrors = $state<SocietyFormErrors>({});
 	let initialized = $state(false);
+	let canEdit = $state(false);
 	let form = $state<SocietyFormInput>({
 		name: '',
 		type: SOCIETY_TYPES[0],
@@ -39,13 +42,27 @@
 
 	const societyId = $derived(page.params.societyId ?? '');
 
-	const load = async (id: string) => {
+	const load = async (id: string, userId: string) => {
 		loading = true;
 		loadError = null;
+		canEdit = false;
 		try {
 			const society = await getSocietyById(id);
 			if (!society) {
 				loadError = 'Society not found.';
+				return;
+			}
+			const { db } = getFirebaseServices();
+			const membershipRef = doc(db, 'memberships', `${id}_${userId}`);
+			const membershipSnapshot = await getDoc(membershipRef);
+			const membershipRole = membershipSnapshot.exists()
+				? (membershipSnapshot.data() as { role?: string }).role
+				: undefined;
+			const isAdminMember = membershipRole === 'admin';
+			const isCreator = society.creatorId === userId;
+			canEdit = isAdminMember || isCreator;
+			if (!canEdit) {
+				loadError = 'You do not have permission to edit this society.';
 				return;
 			}
 			form = {
@@ -75,12 +92,16 @@
 			initialized = true;
 			return;
 		}
-		void load(societyId);
+		void load(societyId, $authState.user.uid);
 	});
 
 	const submit = async () => {
 		if (!societyId) {
 			saveError = 'Society not found.';
+			return;
+		}
+		if (!canEdit) {
+			saveError = 'You do not have permission to edit this society.';
 			return;
 		}
 		saveError = null;
@@ -114,7 +135,16 @@
 			});
 			await goto(`/societies/${societyId}`);
 		} catch (error) {
-			saveError = error instanceof Error ? error.message : 'Unable to save society changes.';
+			const permissionDenied =
+				typeof error === 'object' &&
+				error !== null &&
+				'code' in error &&
+				(error as { code?: string }).code === 'permission-denied';
+			saveError = permissionDenied
+				? 'You do not have permission to edit this society.'
+				: error instanceof Error
+					? error.message
+					: 'Unable to save society changes.';
 		} finally {
 			saving = false;
 		}
