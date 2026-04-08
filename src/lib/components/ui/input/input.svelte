@@ -2,14 +2,16 @@
 	import type { ClassValue, HTMLInputAttributes } from 'svelte/elements';
 	import { cn } from '$lib/utils';
 
-	interface Props extends Omit<HTMLInputAttributes, 'class'> {
+	interface Props extends Omit<HTMLInputAttributes, 'class' | 'value'> {
 		class?: ClassValue;
+		value?: HTMLInputAttributes['value'];
 	}
 
-	let { class: className, type = 'text', ...rest }: Props = $props();
+	let { class: className, type = 'text', value = $bindable(), ...rest }: Props = $props();
 </script>
 
 <input
+	bind:value
 	{type}
 	{...rest}
 	class={cn(

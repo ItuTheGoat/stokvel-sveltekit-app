@@ -3,29 +3,24 @@
 - **Language**: TypeScript
 - **Package Manager**: bun
 - **Add-ons**: eslint, tailwindcss, mcp, prettier
+- **Package scripts**: Use `bun run <script>` for npm scripts and `bunx`. Firebase: `deploy:firestore`, `deploy:storage`, or `deploy:firebase:all`.
 
 ---
 
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+## Svelte MCP Strategy
 
-## Available MCP Tools:
+You have access to Svelte 5 and SvelteKit documentation via MCP. Use these tools **discretionary** rather than mandatory to ensure a fast, seamless dev experience.
 
-### 1. list-sections
+### Tool Usage Heuristics:
 
-Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths.
-When asked about Svelte or SvelteKit topics, ALWAYS use this tool at the start of the chat to find relevant sections.
+1. **list-sections & get-documentation**
+  - **Skip if:** The request involves standard Svelte 5 syntax you already know (e.g., simple `$state`, `$derived`, or basic routing).
+  - **Use if:** The user asks about complex SvelteKit internals, specific edge cases in Svelte 5 snippets, or features added in very recent minor releases.
+  - **Efficiency:** If you know the specific topic, go straight to `get-documentation` if the path is predictable, or use `list-sections` only if the exact documentation path is ambiguous.
+2. **svelte-autofixer**
+  - **Skip if:** You are making minor CSS changes, updating HTML attributes, or fixing a simple logic error.
+  - **Use if:** You are writing a new component from scratch, performing a large-scale refactor of Runes, or the user reports a cryptic compiler error.
+  - **Constraint:** Do not loop this tool. Run it once; if suggestions remain that you can fix manually, do so in the final code block without re-running the tool.
+3. **playground-link**
+  - **Constraint:** Only generate if the user explicitly requests a shareable link. Do not ask the user if they want one after every message.
 
-### 2. get-documentation
-
-Retrieves full documentation content for specific sections. Accepts single or multiple sections.
-After calling the list-sections tool, you MUST analyze the returned documentation sections (especially the use_cases field) and then use the get-documentation tool to fetch ALL documentation sections that are relevant for the user's task.
-
-### 3. svelte-autofixer
-
-Analyzes Svelte code and returns issues and suggestions.
-You MUST use this tool whenever writing Svelte code before sending it to the user. Keep calling it until no issues or suggestions are returned.
-
-### 4. playground-link
-
-Generates a Svelte Playground link with the provided code.
-After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
