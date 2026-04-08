@@ -108,6 +108,7 @@ const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const MAX_DESCRIPTION_LENGTH = 160;
 export const MAX_DUE_DETAIL_LENGTH = 120;
 export const DEFAULT_DUE_PRESET: SocietyDuePreset = 'first_of_month';
+const INVITE_CODE_MAX_ATTEMPTS = 5;
 export const DUE_PRESET_LABELS: Record<SocietyDuePreset, string> = {
 	first_of_month: '1st of the month',
 	last_of_month: 'Last day of the month',
@@ -198,24 +199,26 @@ const buildInviteSeed = (input: CreateSocietyInput) =>
 	].join('|');
 
 export const createInviteCodeCandidate = (input: CreateSocietyInput) => {
-	const randomA = getRandomUint32();
-	const randomB = getRandomUint32();
-	const seed = `${buildInviteSeed(input)}|${randomA}|${randomB}`;
+	for (let attempt = 0; attempt < INVITE_CODE_MAX_ATTEMPTS; attempt += 1) {
+		const randomA = getRandomUint32();
+		const randomB = getRandomUint32();
+		const seed = `${buildInviteSeed(input)}|${randomA}|${randomB}`;
 
-	let state = fnv1a32(seed) ^ randomA ^ randomB;
-	let compactCode = '';
+		let state = fnv1a32(seed) ^ randomA ^ randomB;
+		let compactCode = '';
 
-	for (let index = 0; index < 7; index += 1) {
-		state = lcgNext(state);
-		compactCode += CROCKFORD_ALPHABET[state % CROCKFORD_ALPHABET.length];
+		for (let index = 0; index < 7; index += 1) {
+			state = lcgNext(state);
+			compactCode += CROCKFORD_ALPHABET[state % CROCKFORD_ALPHABET.length];
+		}
+
+		const inviteCode = `${compactCode.slice(0, 4)}-${compactCode.slice(4)}`;
+		if (INVITE_CODE_REGEX.test(inviteCode)) {
+			return inviteCode;
+		}
 	}
 
-	const inviteCode = `${compactCode.slice(0, 4)}-${compactCode.slice(4)}`;
-	if (!INVITE_CODE_REGEX.test(inviteCode)) {
-		throw new Error('Invite code generation failed.');
-	}
-
-	return inviteCode;
+	throw new Error('Invite code generation failed after maximum attempts.');
 };
 
 export const parseDateInput = (dateInput: string) => {
