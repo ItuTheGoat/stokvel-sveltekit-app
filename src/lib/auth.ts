@@ -155,6 +155,12 @@ export const signOutUser = async () => {
 
 	try {
 		await signOut(auth);
+	} catch (error) {
+		authState.update((state) => ({
+			...state,
+			error: error instanceof Error ? error.message : String(error)
+		}));
+		throw error;
 	} finally {
 		authState.update((state) => ({ ...state, isLoading: false }));
 	}
